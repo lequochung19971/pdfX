@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getPDFsFromStorage } from '@/lib/pdf-storage';
 import type { PDFDocument } from '@/lib/types';
-import { FileText, Grid, List, Search, Upload } from 'lucide-react';
+import { FileText, Grid, List, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 export default function HomePage() {

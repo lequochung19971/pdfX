@@ -162,7 +162,7 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
 
   const onPageLoadSuccess = useCallback(() => {
     // Page load success handler - can be used for future enhancements
-  }, [scale]);
+  }, []);
 
   const handleTextSelection = () => {
     const selection = window.getSelection();

@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, X, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { savePDFToStorage } from '@/lib/pdf-storage';
 import type { PDFDocument } from '@/lib/types';
+import { CheckCircle, FileText, Upload, X } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { useDropzone } from 'react-dropzone';
 
 interface PDFUploadProps {
   onUploadComplete: () => void;
@@ -60,7 +60,7 @@ export default function PDFUpload({ onUploadComplete }: PDFUploadProps) {
           setUploadFiles((prev) =>
             prev.map((f) => (f.id === uploadFile.id ? { ...f, status: 'completed' } : f))
           );
-        } catch (error) {
+        } catch {
           setUploadFiles((prev) =>
             prev.map((f) =>
               f.id === uploadFile.id ? { ...f, status: 'error', error: 'Failed to upload' } : f
