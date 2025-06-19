@@ -15,10 +15,12 @@ import {
   Save,
   Download,
   ChevronRight as ChevronRightIcon,
+  ChevronLeft as ChevronLeftIcon,
   X,
   ChevronDown,
   ChevronUp,
   Trash2,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,6 +61,7 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
   const [sourceLanguage, setSourceLanguage] = useState<string>('en');
   const [targetLanguage, setTargetLanguage] = useState<string>('vi');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState<boolean>(false);
   const [storageType, setStorageType] = useState<'indexeddb' | 'supabase'>('indexeddb');
   const [expandedHighlights, setExpandedHighlights] = useState<boolean>(true);
   const [activeHighlight, setActiveHighlight] = useState<Highlight | null>(null);
@@ -449,77 +452,123 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
           </div>
 
           {/* Controls */}
-          <div className="flex items-center gap-2 p-[6px] rounded-md border border-border bg-background sticky bottom-0 shadow-lg z-40">
-            {/* Zoom Controls */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setScale((prev) => Math.max(0.5, prev - 0.1))}>
-                <ZoomOut className="h-4 w-4" />
-              </Button>
-              <span className="text-sm font-medium w-12 text-center">
-                {Math.round(scale * 100)}%
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setScale((prev) => Math.min(3, prev + 0.1))}>
-                <ZoomIn className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {/* Page Navigation */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  const newPage = Math.max(1, pageNumber - 1);
-                  setPageNumber(newPage);
-                  scrollToPage(newPage);
-                }}
-                disabled={pageNumber <= 1}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
+          {numPages > 1 && (
+            <div className="flex items-center gap-2 p-[6px] rounded-md border border-border bg-background sticky bottom-0 shadow-lg z-40">
+              {/* Zoom Controls */}
               <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  value={pageNumber}
-                  onChange={(e) => {
-                    const page = Number.parseInt(e.target.value);
-                    if (page >= 1 && page <= numPages) {
-                      setPageNumber(page);
-                    }
-                  }}
-                  onBlur={() => {
-                    if (pageNumber >= 1 && pageNumber <= numPages) {
-                      scrollToPage(pageNumber);
-                    }
-                  }}
-                  className="w-16 text-center"
-                  min={1}
-                  max={numPages}
-                />
-                <span className="text-sm text-gray-500">of {numPages}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setScale((prev) => Math.max(0.5, prev - 0.1))}>
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <span className="text-sm font-medium w-12 text-center">
+                  {Math.round(scale * 100)}%
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setScale((prev) => Math.min(3, prev + 0.1))}>
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  const newPage = Math.min(numPages, pageNumber + 1);
-                  setPageNumber(newPage);
-                  scrollToPage(newPage);
-                }}
-                disabled={pageNumber >= numPages}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+
+              {/* Page Navigation */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    const newPage = Math.max(1, pageNumber - 1);
+                    setPageNumber(newPage);
+                    scrollToPage(newPage);
+                  }}
+                  disabled={pageNumber <= 1}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={pageNumber}
+                    onChange={(e) => {
+                      const page = Number.parseInt(e.target.value);
+                      if (page >= 1 && page <= numPages) {
+                        setPageNumber(page);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (pageNumber >= 1 && pageNumber <= numPages) {
+                        scrollToPage(pageNumber);
+                      }
+                    }}
+                    className="w-16 text-center"
+                    min={1}
+                    max={numPages}
+                  />
+                  <span className="text-sm text-gray-500">of {numPages}</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    const newPage = Math.min(numPages, pageNumber + 1);
+                    setPageNumber(newPage);
+                    scrollToPage(newPage);
+                  }}
+                  disabled={pageNumber >= numPages}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Left Sidebar - Page List */}
+      <div
+        className={`fixed top-6 left-6 h-[calc(100%-96px)] rounded-xl bg-background border-r border-border transition-all duration-300 z-50 shadow-lg overflow-y-auto ${
+          leftSidebarOpen ? 'w-80' : 'w-0 border-none'
+        }`}>
+        {/* Sidebar header */}
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <h2 className="font-semibold text-lg">Pages</h2>
+          <Button variant="ghost" size="icon" onClick={() => setLeftSidebarOpen(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Pages list */}
+        <div className="">
+          <h3 className="font-semibold py-4 px-4">All Pages ({numPages})</h3>
+          <div className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto px-4">
+            {Array.from(new Array(numPages), (_, index) => (
+              <div
+                key={`page_nav_${index + 1}`}
+                className={`p-2 border rounded-md flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors ${
+                  pageNumber === index + 1 ? 'border-primary bg-primary/10' : 'border-gray-200'
+                }`}
+                onClick={() => {
+                  setPageNumber(index + 1);
+                  scrollToPage(index + 1);
+                }}>
+                <FileText className="h-4 w-4 text-gray-500" />
+                <span className="text-sm font-medium">Page {index + 1}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Collapsible Sidebar */}
+      {/* Collapse/Expand button when left sidebar is closed */}
+      {!leftSidebarOpen && (
+        <button
+          onClick={() => setLeftSidebarOpen(true)}
+          className="fixed top-1/2 left-0 transform -translate-y-1/2 bg-primary text-primary-foreground p-2 rounded-r-md shadow-md z-50">
+          <ChevronLeftIcon className="h-4 w-4" />
+        </button>
+      )}
+
+      {/* Collapsible Right Sidebar */}
       <div
         className={`fixed top-6 right-6 h-[calc(100%-96px)] rounded-xl bg-background border-l border-border transition-all duration-300 z-50 shadow-lg overflow-y-auto ${
           sidebarOpen ? 'w-96' : 'w-0 border-none'
@@ -624,7 +673,7 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
         </div>
       </div>
 
-      {/* Collapse/Expand button when sidebar is closed */}
+      {/* Collapse/Expand button when right sidebar is closed */}
       {!sidebarOpen && (
         <button
           onClick={() => setSidebarOpen(true)}
