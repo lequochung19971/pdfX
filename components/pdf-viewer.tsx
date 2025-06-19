@@ -1,36 +1,38 @@
 'use client';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
-import type React from 'react';
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
-import {
-  ArrowLeft,
-  ZoomIn,
-  ZoomOut,
-  ChevronLeft,
-  ChevronRight,
-  Highlighter,
-  Languages,
-  Save,
-  Download,
-  ChevronRight as ChevronRightIcon,
-  ChevronLeft as ChevronLeftIcon,
-  X,
-  ChevronDown,
-  ChevronUp,
-  Trash2,
-  FileText,
-} from 'lucide-react';
+import '@/app/pdfjs.css';
+import { TranslationPopover } from '@/components/translation-popover';
+import { TranslationSettings } from '@/components/translation-settings';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import type { PDFDocument, Annotation, Highlight } from '@/lib/types';
-import { saveAnnotation } from '@/lib/supabase';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getAllFromIndexedDB, saveAllToIndexedDB } from '@/lib/indexdb-storage';
-import { TranslationPopover } from '@/components/translation-popover';
-import { TranslationSettings } from '@/components/translation-settings';
+import { saveAnnotation } from '@/lib/supabase';
+import type { Annotation, Highlight, PDFDocument } from '@/lib/types';
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronLeft,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight,
+  ChevronRight as ChevronRightIcon,
+  ChevronUp,
+  Download,
+  FileText,
+  Highlighter,
+  Languages,
+  Save,
+  Trash2,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Document, Outline, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -41,6 +43,23 @@ interface PDFViewerProps {
 }
 
 type Tool = 'select' | 'highlight' | 'translate';
+
+// Define type for TOC item
+interface TOCItem {
+  title: string;
+  dest: string | unknown[] | null;
+  items?: TOCItem[];
+  // Additional properties that might come from PDF.js
+  bold?: boolean;
+  italic?: boolean;
+  color?: Uint8ClampedArray;
+  url?: string | null;
+  unsafeUrl?: string;
+  newWindow?: boolean;
+  count?: number;
+  // Custom property for storing page number after processing
+  pageIndex?: number;
+}
 
 export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
@@ -69,6 +88,8 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
     x: number;
     y: number;
   }>({ x: 0, y: 0 });
+  const [tableOfContents, setTableOfContents] = useState<TOCItem[]>([]);
+  const [activeTab, setActiveTab] = useState<'pages' | 'toc'>('toc');
 
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -158,9 +179,16 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
     }
   };
 
-  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+  const onDocumentLoadSuccess = ({ numPages, ...args }: { numPages: number }) => {
     setNumPages(numPages);
+    console.log('args', args);
     pageRefs.current = new Array(numPages).fill(null);
+  };
+
+  const onOutlineLoadSuccess = (outline: TOCItem[] | null) => {
+    if (outline) {
+      setTableOfContents(outline);
+    }
   };
 
   const onPageLoadSuccess = useCallback(() => {
@@ -374,40 +402,49 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
     });
   };
 
+  // Handle outline item click from the react-pdf Outline component
+  const handleOutlineItemClick = (props: { pageNumber: number }) => {
+    // The Outline component provides the pageNumber directly
+    if (props.pageNumber) {
+      setPageNumber(props.pageNumber);
+      scrollToPage(props.pageNumber);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100 flex">
-      {/* Main Content */}
-      <div className={`flex-1 transition-all duration-300`}>
-        {/* Header */}
-        <div className="absolute top-0 left-0 right-0 z-50 bg-transparent px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="icon" onClick={onBack}>
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <Separator orientation="vertical" className="h-6" />
-              <Button variant="outline">
-                <h1 className="font-semibold text-gray-900 truncate max-w-md">{pdf.name}</h1>
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={saveAllAnnotations}>
-                <Save className="h-4 w-4" />
-                Save
-              </Button>
-              <Button variant="outline" onClick={downloadPDF}>
-                <Download className="h-4 w-4" />
-                Download
-              </Button>
+    <Document file={pdf.file} onLoadSuccess={onDocumentLoadSuccess}>
+      <div className="min-h-screen bg-gray-100 flex">
+        {/* Main Content */}
+        <div className={`flex-1 transition-all duration-300 flex justify-center`}>
+          {/* Header */}
+          <div className="absolute top-0 left-0 right-0 z-50 bg-transparent px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="outline" size="icon" onClick={onBack}>
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <Separator orientation="vertical" className="h-6" />
+                <Button variant="outline">
+                  <h1 className="font-semibold text-gray-900 truncate max-w-md">{pdf.name}</h1>
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={saveAllAnnotations}>
+                  <Save className="h-4 w-4" />
+                  Save
+                </Button>
+                <Button variant="outline" onClick={downloadPDF}>
+                  <Download className="h-4 w-4" />
+                  Download
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* PDF Viewer */}
-        <div className="flex flex-1 p-4 pt-16 relative h-[100vh] overflow-auto flex-col items-center justify-start">
-          <div className="flex justify-center">
-            <div ref={containerRef} className="space-y-4">
-              <Document file={pdf.file} onLoadSuccess={onDocumentLoadSuccess}>
+          {/* PDF Viewer */}
+          <div className="flex flex-1 p-4 pt-16 relative h-[100vh] overflow-auto flex-col items-center justify-start">
+            <div className="flex justify-center">
+              <div ref={containerRef} className="space-y-4">
                 {Array.from(new Array(numPages), (el, index) => (
                   <div
                     key={`page_${index + 1}`}
@@ -447,13 +484,14 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
                     </div>
                   </div>
                 ))}
-              </Document>
+                {/* Outline component to extract TOC data */}
+              </div>
             </div>
           </div>
 
           {/* Controls */}
           {numPages > 1 && (
-            <div className="flex items-center gap-2 p-[6px] rounded-md border border-border bg-background sticky bottom-0 shadow-lg z-40">
+            <div className="flex items-center gap-2 p-[6px] rounded-md border border-border bg-background fixed bottom-8 shadow-lg z-40">
               {/* Zoom Controls */}
               <div className="flex items-center gap-2">
                 <Button
@@ -524,39 +562,65 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
         </div>
       </div>
 
-      {/* Left Sidebar - Page List */}
+      {/* Left Sidebar - Page List and Table of Contents */}
       <div
         className={`fixed top-6 left-6 h-[calc(100%-96px)] rounded-xl bg-background border-r border-border transition-all duration-300 z-50 shadow-lg overflow-y-auto ${
           leftSidebarOpen ? 'w-80' : 'w-0 border-none'
         }`}>
         {/* Sidebar header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <h2 className="font-semibold text-lg">Pages</h2>
+          <h2 className="font-semibold text-lg">Document</h2>
           <Button variant="ghost" size="icon" onClick={() => setLeftSidebarOpen(false)}>
             <X className="h-4 w-4" />
           </Button>
         </div>
 
-        {/* Pages list */}
-        <div className="">
-          <h3 className="font-semibold py-4 px-4">All Pages ({numPages})</h3>
-          <div className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto px-4">
-            {Array.from(new Array(numPages), (_, index) => (
-              <div
-                key={`page_nav_${index + 1}`}
-                className={`p-2 border rounded-md flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors ${
-                  pageNumber === index + 1 ? 'border-primary bg-primary/10' : 'border-gray-200'
-                }`}
-                onClick={() => {
-                  setPageNumber(index + 1);
-                  scrollToPage(index + 1);
-                }}>
-                <FileText className="h-4 w-4 text-gray-500" />
-                <span className="text-sm font-medium">Page {index + 1}</span>
-              </div>
-            ))}
+        {/* Tab navigation */}
+        <Tabs
+          defaultValue="toc"
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as 'pages' | 'toc')}>
+          <div className="px-4 pt-4">
+            <TabsList className="w-full">
+              <TabsTrigger value="toc" className="flex-1">
+                Contents
+              </TabsTrigger>
+              <TabsTrigger value="pages" className="flex-1">
+                Pages
+              </TabsTrigger>
+            </TabsList>
           </div>
-        </div>
+
+          <TabsContent value="pages">
+            <h3 className="font-semibold text-sm px-4 py-2">All Pages ({numPages})</h3>
+            <div className="space-y-2 max-h-[calc(100vh-262px)] overflow-y-auto px-4 pb-4">
+              {Array.from(new Array(numPages), (_, index) => (
+                <div
+                  key={`page_nav_${index + 1}`}
+                  className={`p-2 flex text-accent-foreground items-center gap-2 rounded-md cursor-pointer hover:bg-accent transition-colors ${
+                    pageNumber === index + 1 ? 'bg-accent' : 'bg-background'
+                  }`}
+                  onClick={() => {
+                    setPageNumber(index + 1);
+                    scrollToPage(index + 1);
+                  }}>
+                  <FileText className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm">Page {index + 1}</span>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="toc">
+            <h3 className="font-semibold text-sm px-4 py-2">Table of Contents</h3>
+            <div className="space-y-2 max-h-[calc(100vh-262px)] overflow-y-auto px-4 pb-4">
+              <Outline onLoadSuccess={onOutlineLoadSuccess} onItemClick={handleOutlineItemClick} />
+              {tableOfContents.length === 0 && (
+                <p className="text-sm text-muted-foreground">No table of contents available</p>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Collapse/Expand button when left sidebar is closed */}
@@ -741,6 +805,6 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
           onClose={() => setShowTranslationPopover(false)}
         />
       )}
-    </div>
+    </Document>
   );
 }
