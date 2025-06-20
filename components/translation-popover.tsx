@@ -1,6 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { useGoogleTranslate } from '@/hooks/useGoogleTranslate';
 
@@ -30,6 +31,8 @@ export function TranslationPopover({
   targetLanguage = 'vi',
   onClose,
 }: TranslationPopoverProps) {
+  const popoverRef = useRef<HTMLDivElement>(null);
+
   const {
     data: translationData,
     isLoading,
@@ -40,6 +43,20 @@ export function TranslationPopover({
     text,
     enabled: !!text,
   });
+
+  // Handle click outside to close popover
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [onClose]);
 
   const getLanguageName = (code: string) => {
     const languages: { [key: string]: string } = {
@@ -59,6 +76,7 @@ export function TranslationPopover({
 
   return (
     <div
+      ref={popoverRef}
       className="fixed z-50 bg-gray-800 text-white border border-gray-600 rounded-lg shadow-xl p-3 max-w-sm min-w-64"
       style={{
         left: `${position.x}px`,
