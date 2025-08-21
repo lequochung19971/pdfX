@@ -556,7 +556,7 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
     if (activeTool !== 'screenshot') return;
 
     event.preventDefault();
-    const rect = event.currentTarget.getBoundingClientRect();
+    // const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX;
     const y = event.clientY;
 
@@ -603,7 +603,7 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
     const pageRef = pageRefs.current[currentDragPage];
     if (!pageRef) return null;
 
-    const pageRect = pageRef.getBoundingClientRect();
+    // const pageRect = pageRef.getBoundingClientRect();
 
     const x1 = Math.min(dragStart.x, dragEnd.x);
     const y1 = Math.min(dragStart.y, dragEnd.y);
