@@ -711,6 +711,7 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
 
       // Show the new screenshot as active
       setActiveScreenshot(screenshot);
+      handleScreenshotTranslate(screenshot);
       setScreenshotToolbarPosition({
         x: selectionRect.pageRect.right + 10,
         y: selectionRect.pageRect.top + 50,
@@ -926,7 +927,7 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
                             width: `${highlight.width}%`,
                             height: `${highlight.height}%`,
                             backgroundColor: highlight.color,
-                            opacity: 0.3,
+                            opacity: 0.6,
                           }}
                           onClick={(e) => handleHighlightClick(highlight, e)}
                           title="Click to translate this text">
@@ -974,8 +975,8 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
                             </div>
                             {screenshot.translation && (
                               <div className="bg-green-500 text-white text-xs px-2 py-1 rounded-t whitespace-nowrap">
-                                📝 {screenshot.translation.translatedText.substring(0, 15)}
-                                {screenshot.translation.translatedText.length > 15 ? '...' : ''}
+                                📝 {screenshot.translation.translatedText.substring(0, 10)}
+                                {screenshot.translation.translatedText.length > 10 ? '...' : ''}
                               </div>
                             )}
                             {translatingScreenshots.has(screenshot.id) && (
@@ -1007,7 +1008,7 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
                 onClick={() => setActiveTool(activeTool === 'screenshot' ? 'select' : 'screenshot')}
                 disabled={isCapturing}>
                 <Camera className="h-4 w-4" />
-                {isCapturing ? 'Capturing...' : 'Screenshot'}
+                {isCapturing ? 'Capturing...' : 'Screenshot to translate'}
               </Button>
               <div className="flex items-center gap-2">
                 <Button
@@ -1441,24 +1442,6 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
               <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
           </div>
-          <div className="space-y-2">
-            <h4 className="font-medium text-sm">Title</h4>
-            <div className="flex gap-2 items-center">
-              <Input
-                value={screenshotTextInput}
-                onChange={(e) => setScreenshotTextInput(e.target.value)}
-                placeholder="Enter your note..."
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    saveScreenshotText();
-                  }
-                }}
-              />
-              <Button size="sm" onClick={saveScreenshotText}>
-                Save
-              </Button>
-            </div>
-          </div>
           {activeScreenshot.translation && (
             <div className="space-y-2">
               <h4 className="font-medium text-sm">Translation</h4>
@@ -1478,6 +1461,25 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
               </div>
             </div>
           )}
+          <div className="space-y-2">
+            <h4 className="font-medium text-sm">Title</h4>
+            <div className="flex gap-2 items-center">
+              <Input
+                value={screenshotTextInput}
+                onChange={(e) => setScreenshotTextInput(e.target.value)}
+                placeholder="Enter your note..."
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    saveScreenshotText();
+                  }
+                }}
+              />
+              <Button size="sm" onClick={saveScreenshotText}>
+                Save
+              </Button>
+            </div>
+          </div>
+
           {translatingScreenshots.has(activeScreenshot.id) && (
             <div className="p-2 bg-sky-50 border border-sky-200 rounded text-xs space-y-1">
               <p className="text-sky-700 font-medium">Translating...</p>
