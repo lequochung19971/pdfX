@@ -1,10 +1,11 @@
-import type { Annotation, Highlight } from '@/lib/types';
+import type { Annotation, Highlight, Screenshot } from '@/lib/types';
 
 // Database configurations
 const DB_NAME = 'pdfx-storage';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Increment version to add screenshot store
 const HIGHLIGHT_STORE = 'highlights';
 const ANNOTATION_STORE = 'annotations';
+const SCREENSHOT_STORE = 'screenshots';
 
 // Initialize the database
 export const initDB = (): Promise<IDBDatabase> => {
@@ -32,6 +33,11 @@ export const initDB = (): Promise<IDBDatabase> => {
       if (!db.objectStoreNames.contains(ANNOTATION_STORE)) {
         const annotationStore = db.createObjectStore(ANNOTATION_STORE, { keyPath: 'id' });
         annotationStore.createIndex('pdfId', 'pdfId', { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains(SCREENSHOT_STORE)) {
+        const screenshotStore = db.createObjectStore(SCREENSHOT_STORE, { keyPath: 'id' });
+        screenshotStore.createIndex('pdfId', 'pdfId', { unique: false });
       }
     };
   });
@@ -174,23 +180,96 @@ export const getAnnotationsFromIndexedDB = async (pdfId: string): Promise<Annota
   }
 };
 
-// Save both highlights and annotations
+// Save screenshots to IndexedDB
+export const saveScreenshotsToIndexedDB = async (
+  pdfId: string,
+  screenshots: Screenshot[]
+): Promise<void> => {
+  try {
+    const db = await initDB();
+    const transaction = db.transaction(SCREENSHOT_STORE, 'readwrite');
+    const store = transaction.objectStore(SCREENSHOT_STORE);
+
+    // Delete existing screenshots for this PDF
+    const index = store.index('pdfId');
+    const keyRange = IDBKeyRange.only(pdfId);
+    const request = index.openKeyCursor(keyRange);
+
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (cursor) {
+        store.delete(cursor.primaryKey);
+        cursor.continue();
+      } else {
+        // After deleting, add all current screenshots
+        screenshots.forEach((screenshot) => {
+          store.add({ ...screenshot, pdfId });
+        });
+      }
+    };
+
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(new Error('Failed to save screenshots to IndexedDB'));
+    });
+  } catch (error) {
+    console.error('Error saving screenshots to IndexedDB:', error);
+    throw error;
+  }
+};
+
+// Retrieve screenshots from IndexedDB
+export const getScreenshotsFromIndexedDB = async (pdfId: string): Promise<Screenshot[]> => {
+  try {
+    const db = await initDB();
+    const transaction = db.transaction(SCREENSHOT_STORE, 'readonly');
+    const store = transaction.objectStore(SCREENSHOT_STORE);
+    const index = store.index('pdfId');
+    const keyRange = IDBKeyRange.only(pdfId);
+
+    return new Promise((resolve, reject) => {
+      const request = index.getAll(keyRange);
+
+      request.onsuccess = () => {
+        const screenshots = request.result.map((item) => {
+          // Remove the pdfId property as it's not needed in the component
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { pdfId, ...screenshot } = item;
+          return {
+            ...screenshot,
+            timestamp: new Date(screenshot.timestamp), // Convert back to Date object
+          } as Screenshot;
+        });
+        resolve(screenshots);
+      };
+
+      request.onerror = () => reject(new Error('Failed to retrieve screenshots from IndexedDB'));
+    });
+  } catch (error) {
+    console.error('Error retrieving screenshots from IndexedDB:', error);
+    return [];
+  }
+};
+
+// Save highlights, annotations, and screenshots
 export const saveAllToIndexedDB = async (
   pdfId: string,
-  data: { highlights: Highlight[]; annotations: Annotation[] }
+  data: { highlights: Highlight[]; annotations: Annotation[]; screenshots: Screenshot[] }
 ): Promise<void> => {
   await Promise.all([
     saveHighlightsToIndexedDB(pdfId, data.highlights),
     saveAnnotationsToIndexedDB(pdfId, data.annotations),
+    saveScreenshotsToIndexedDB(pdfId, data.screenshots),
   ]);
 };
 
-// Get both highlights and annotations
+// Get highlights, annotations, and screenshots
 export const getAllFromIndexedDB = async (pdfId: string) => {
-  const [highlights, annotations] = await Promise.all([
+  const [highlights, annotations, screenshots] = await Promise.all([
     getHighlightsFromIndexedDB(pdfId),
     getAnnotationsFromIndexedDB(pdfId),
+    getScreenshotsFromIndexedDB(pdfId),
   ]);
 
-  return { highlights, annotations };
+  return { highlights, annotations, screenshots };
 };
