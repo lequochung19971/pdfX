@@ -1263,8 +1263,12 @@ export default function PDFViewer({ pdf, onBack }: PDFViewerProps) {
               {screenshots.length > 0 ? (
                 screenshots.map((screenshot) => (
                   <div
+                    onClick={() => {
+                      setPageNumber(screenshot.page);
+                      scrollToPage(screenshot.page);
+                    }}
                     key={screenshot.id}
-                    className="p-2 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors group">
+                    className="p-2 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors group cursor-pointer">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
